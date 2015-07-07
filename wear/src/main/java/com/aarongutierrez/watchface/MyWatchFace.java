@@ -17,23 +17,33 @@
 package com.aarongutierrez.watchface;
 
 import android.content.BroadcastReceiver;
+import android.content.ContentUris;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.res.Resources;
+import android.database.Cursor;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Rect;
 import android.graphics.Typeface;
+import android.net.Uri;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
+import android.os.PowerManager;
+import android.support.wearable.provider.WearableCalendarContract;
 import android.support.wearable.watchface.CanvasWatchFaceService;
 import android.support.wearable.watchface.WatchFaceStyle;
+import android.text.format.DateUtils;
 import android.text.format.Time;
+import android.util.Log;
 import android.view.SurfaceHolder;
 import android.view.WindowInsets;
 
+import java.util.LinkedList;
+import java.util.List;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
@@ -51,6 +61,8 @@ public class MyWatchFace extends CanvasWatchFaceService {
      */
     private static final long INTERACTIVE_UPDATE_RATE_MS = TimeUnit.SECONDS.toMillis(1);
 
+    private static final String TAG = "MyWatchFace";
+
     @Override
     public Engine onCreateEngine() {
         return new Engine();
@@ -58,6 +70,22 @@ public class MyWatchFace extends CanvasWatchFaceService {
 
     private class Engine extends CanvasWatchFaceService.Engine {
         static final int MSG_UPDATE_TIME = 0;
+        static final int MSG_LOAD_MEETINGS = 0;
+
+        private AsyncTask<Void, Void, List<CalenderEvent>> mLoadMeetingsTask;
+
+        final Handler mLoadMeetingsHandler = new Handler() {
+            @Override
+            public void handleMessage(Message message) {
+                switch (message.what) {
+                    case MSG_LOAD_MEETINGS:
+                        cancelLoadMeetingTask();
+                        mLoadMeetingsTask = new LoadMeetingsTask();
+                        mLoadMeetingsTask.execute();
+                        break;
+                }
+            }
+        };
 
         /**
          * Handler to update the time periodically in interactive mode.
@@ -83,6 +111,11 @@ public class MyWatchFace extends CanvasWatchFaceService {
             @Override
             public void onReceive(Context context, Intent intent) {
                 mTime.clear(intent.getStringExtra("time-zone"));
+                if (Intent.ACTION_PROVIDER_CHANGED.equals(intent.getAction())
+                    && WearableCalendarContract.CONTENT_URI.equals(intent.getData())) {
+                    cancelLoadMeetingTask();
+                    mLoadMeetingsHandler.sendEmptyMessage(MSG_LOAD_MEETINGS);
+                }
                 mTime.setToNow();
             }
         };
@@ -91,13 +124,23 @@ public class MyWatchFace extends CanvasWatchFaceService {
 
         Paint mBackgroundPaint;
         Paint mTextPaint;
+        Paint mCalPaint;
 
         boolean mAmbient;
 
         Time mTime;
 
+        private long today() {
+            return (mTime.toMillis(false) / DateUtils.DAY_IN_MILLIS) * DateUtils.DAY_IN_MILLIS
+                    - (mTime.gmtoff * DateUtils.SECOND_IN_MILLIS) - DateUtils.DAY_IN_MILLIS;
+        }
+
         float mXOffset;
         float mYOffset;
+
+        float mCalWidth;
+
+        List<CalenderEvent> mEventList;
 
         /**
          * Whether the display supports fewer bits for each color in ambient mode. When true, we
@@ -108,33 +151,43 @@ public class MyWatchFace extends CanvasWatchFaceService {
         @Override
         public void onCreate(SurfaceHolder holder) {
             super.onCreate(holder);
+            Log.d(TAG, "Loading...");
 
             setWatchFaceStyle(new WatchFaceStyle.Builder(MyWatchFace.this)
-                    .setCardPeekMode(WatchFaceStyle.PEEK_MODE_VARIABLE)
+                    .setCardPeekMode(WatchFaceStyle.PEEK_MODE_SHORT)
                     .setBackgroundVisibility(WatchFaceStyle.BACKGROUND_VISIBILITY_INTERRUPTIVE)
                     .setShowSystemUiTime(false)
                     .build());
             Resources resources = MyWatchFace.this.getResources();
             mYOffset = resources.getDimension(R.dimen.digital_y_offset);
 
+            mCalWidth = resources.getDimension(R.dimen.cal_width);
+
             mBackgroundPaint = new Paint();
             mBackgroundPaint.setColor(resources.getColor(R.color.digital_background));
 
             mTextPaint = new Paint();
-            mTextPaint = createTextPaint(resources.getColor(R.color.digital_text));
+            mTextPaint = createTextPaint(resources.getColor(R.color.digital_text),
+                    resources.getDimension(R.dimen.time_size));
+
+            mCalPaint = new Paint();
 
             mTime = new Time();
-        }
 
+            mLoadMeetingsHandler.sendEmptyMessage(MSG_LOAD_MEETINGS);
+        }
         @Override
         public void onDestroy() {
             mUpdateTimeHandler.removeMessages(MSG_UPDATE_TIME);
+            mLoadMeetingsHandler.removeMessages(MSG_LOAD_MEETINGS);
+            cancelLoadMeetingTask();
             super.onDestroy();
         }
 
-        private Paint createTextPaint(int textColor) {
+        private Paint createTextPaint(int textColor, float fontSize) {
             Paint paint = new Paint();
             paint.setColor(textColor);
+            paint.setTextSize(fontSize);
             paint.setTypeface(NORMAL_TYPEFACE);
             paint.setAntiAlias(true);
             return paint;
@@ -185,10 +238,6 @@ public class MyWatchFace extends CanvasWatchFaceService {
             boolean isRound = insets.isRound();
             mXOffset = resources.getDimension(isRound
                     ? R.dimen.digital_x_offset_round : R.dimen.digital_x_offset);
-            float textSize = resources.getDimension(isRound
-                    ? R.dimen.digital_text_size_round : R.dimen.digital_text_size);
-
-            mTextPaint.setTextSize(textSize);
         }
 
         @Override
@@ -206,17 +255,32 @@ public class MyWatchFace extends CanvasWatchFaceService {
         @Override
         public void onAmbientModeChanged(boolean inAmbientMode) {
             super.onAmbientModeChanged(inAmbientMode);
+            Resources resources = MyWatchFace.this.getResources();
+
             if (mAmbient != inAmbientMode) {
                 mAmbient = inAmbientMode;
                 if (mLowBitAmbient) {
                     mTextPaint.setAntiAlias(!inAmbientMode);
                 }
-                invalidate();
+
+                if (mAmbient) {
+                    mBackgroundPaint.setColor(resources.getColor(R.color.ambient_background));
+                } else {
+                    mBackgroundPaint.setColor(resources.getColor(R.color.digital_background));
+                }
+                mCalPaint.setColor(resources.getColor(R.color.digital_text));
             }
+
+            invalidate();
 
             // Whether the timer should be running depends on whether we're visible (as well as
             // whether we're in ambient mode), so we may need to start or stop the timer.
             updateTimer();
+        }
+
+        private float timeToY(long time, float height) {
+            return ((float)(time - today()))
+                    / DateUtils.HOUR_IN_MILLIS * (height / 24.0f);
         }
 
         @Override
@@ -224,12 +288,28 @@ public class MyWatchFace extends CanvasWatchFaceService {
             // Draw the background.
             canvas.drawRect(0, 0, bounds.width(), bounds.height(), mBackgroundPaint);
 
-            // Draw H:MM in ambient mode or H:MM:SS in interactive mode.
+            // Draw time text
             mTime.setToNow();
-            String text = mAmbient
-                    ? String.format("%d:%02d", mTime.hour, mTime.minute)
-                    : String.format("%d:%02d:%02d", mTime.hour, mTime.minute, mTime.second);
-            canvas.drawText(text, mXOffset, mYOffset, mTextPaint);
+            String time_string = String.format("%d:%02d", mTime.hour, mTime.minute);
+            canvas.drawText(time_string, mXOffset, mYOffset, mTextPaint);
+
+            // Draw calendar events
+            float cal_start_x = bounds.width() - mCalWidth;
+            if (mEventList != null) {
+                // Draw now line
+                float now_y = timeToY(mTime.toMillis(false), bounds.height());
+                canvas.drawLine(cal_start_x-10, now_y,
+                        bounds.width(), now_y, mTextPaint);
+
+                for (CalenderEvent c : mEventList) {
+                    if (!mAmbient) {
+                        mCalPaint.setColor(c.event_color);
+                    }
+                    canvas.drawRect(cal_start_x, timeToY(c.startTime, bounds.height()),
+                            bounds.width(), timeToY(c.endTime, bounds.height()), mCalPaint);
+                }
+            }
+
         }
 
         /**
@@ -249,6 +329,93 @@ public class MyWatchFace extends CanvasWatchFaceService {
          */
         private boolean shouldTimerBeRunning() {
             return isVisible() && !isInAmbientMode();
+        }
+
+        private void onMeetingsLoaded(List<CalenderEvent> result) {
+            if (result != null) {
+                mEventList = result;
+                invalidate();
+            }
+        }
+
+        private void cancelLoadMeetingTask() {
+            if (mLoadMeetingsTask != null) {
+                mLoadMeetingsTask.cancel(true);
+            }
+        }
+
+        private class CalenderEvent {
+            long startTime;
+            long endTime;
+            int event_color;
+
+            public CalenderEvent(long startTime, long endTime, String color) {
+                this.startTime = startTime;
+                this.endTime = endTime;
+                event_color = Integer.parseInt(color);
+            }
+        }
+
+        private class LoadMeetingsTask extends AsyncTask<Void, Void, List<CalenderEvent>> {
+            private PowerManager.WakeLock mWakeLock;
+
+            @Override
+            protected List<CalenderEvent> doInBackground(Void... params) {
+                PowerManager powerManager = (PowerManager) getSystemService(POWER_SERVICE);
+                mWakeLock = powerManager.newWakeLock(
+                        PowerManager.PARTIAL_WAKE_LOCK, "MyWatchFaceWakeLock");
+                mWakeLock.acquire();
+
+                Uri.Builder builder = WearableCalendarContract.Instances.CONTENT_URI.buildUpon();
+
+                Log.d(TAG, "Time start: " + today());
+                ContentUris.appendId(builder, today());
+                ContentUris.appendId(builder, today() + DateUtils.DAY_IN_MILLIS);
+
+                final Cursor cursor = getContentResolver().query(builder.build(),
+                        null, null,null, null);
+
+                Log.d(TAG, "Count of rows: " + cursor.getCount());
+
+                LinkedList<CalenderEvent> events = new LinkedList<>();
+
+                int begin_index = cursor.getColumnIndex("begin");
+                int end_index = cursor.getColumnIndex("end");
+                int title_index = cursor.getColumnIndex("title");
+                int display_color_index = cursor.getColumnIndex("displayColor");
+
+                while (cursor.moveToNext()) {
+                    Log.d(TAG, cursor.getString(title_index));
+
+                    events.push(new CalenderEvent(
+                            cursor.getLong(begin_index),
+                            cursor.getLong(end_index),
+                            cursor.getString(display_color_index)
+                    ));
+                }
+
+                cursor.close();
+
+                return events;
+            }
+
+            @Override
+            protected void onPostExecute(List<CalenderEvent> result) {
+                releaseWakeLock();
+                onMeetingsLoaded(result);
+            }
+
+            @Override
+            protected void onCancelled() {
+                releaseWakeLock();
+            }
+
+            private void releaseWakeLock() {
+                if (mWakeLock != null) {
+                    mWakeLock.release();
+                    mWakeLock = null;
+                }
+            }
         }
     }
 }
