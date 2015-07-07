@@ -127,6 +127,7 @@ public class MyWatchFace extends CanvasWatchFaceService {
 
         Paint mBackgroundPaint;
         Paint mTextPaint;
+        Paint mSecondaryTextPaint;
         Paint mCalPaint;
 
         boolean mAmbient;
@@ -173,6 +174,10 @@ public class MyWatchFace extends CanvasWatchFaceService {
             mTextPaint = new Paint();
             mTextPaint = createTextPaint(resources.getColor(R.color.digital_text),
                     resources.getDimension(R.dimen.time_size));
+
+            mSecondaryTextPaint = new Paint();
+            mSecondaryTextPaint = createTextPaint(resources.getColor(R.color.digital_date_text),
+                    resources.getDimension(R.dimen.date_size));
 
             mCalPaint = new Paint();
 
@@ -265,6 +270,7 @@ public class MyWatchFace extends CanvasWatchFaceService {
                 mAmbient = inAmbientMode;
                 if (mLowBitAmbient) {
                     mTextPaint.setAntiAlias(!inAmbientMode);
+                    mSecondaryTextPaint.setAntiAlias(!inAmbientMode);
                 }
 
                 if (mAmbient) {
@@ -290,18 +296,13 @@ public class MyWatchFace extends CanvasWatchFaceService {
             tmp.second = 0;
 
             return (((float)(time - tmp.toMillis(false)))
-                    / DateUtils.HOUR_IN_MILLIS)* (height / 24.0f);
+                    / DateUtils.HOUR_IN_MILLIS) * (height / 24.0f);
         }
 
         @Override
         public void onDraw(Canvas canvas, Rect bounds) {
             // Draw the background.
             canvas.drawRect(0, 0, bounds.width(), bounds.height(), mBackgroundPaint);
-
-            // Draw time text
-            mTime.setToNow();
-            String time_string = String.format("%d:%02d", mTime.hour, mTime.minute);
-            canvas.drawText(time_string, mXOffset, mYOffset, mTextPaint);
 
             // Draw calendar events
             float cal_start_x = bounds.width() - mCalWidth;
@@ -320,6 +321,13 @@ public class MyWatchFace extends CanvasWatchFaceService {
                 }
             }
 
+            // Draw time text
+            mTime.setToNow();
+            String time_string = String.format("%d:%02d", mTime.hour, mTime.minute);
+            String date_string = mTime.format("%d %a");
+
+            canvas.drawText(time_string, mXOffset, mYOffset, mTextPaint);
+            canvas.drawText(date_string, mXOffset, mYOffset + 70, mSecondaryTextPaint);
         }
 
         /**

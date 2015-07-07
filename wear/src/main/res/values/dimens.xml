@@ -7,4 +7,5 @@
     <dimen name="digital_y_offset">70dp</dimen>
     <dimen name="cal_width">50dp</dimen>
     <dimen name="time_size">60dp</dimen>
+    <dimen name="date_size">40dp</dimen>
 </resources>

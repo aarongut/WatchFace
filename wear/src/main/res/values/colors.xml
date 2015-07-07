@@ -2,5 +2,6 @@
 <resources>
     <color name="digital_background">#7A00A3</color>
     <color name="digital_text">#ffffff</color>
+    <color name="digital_date_text">#eeeeee</color>
     <color name="ambient_background">#000000</color>
 </resources>
