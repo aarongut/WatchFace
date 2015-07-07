@@ -60,6 +60,7 @@ public class MyWatchFace extends CanvasWatchFaceService {
      * displayed in interactive mode.
      */
     private static final long INTERACTIVE_UPDATE_RATE_MS = TimeUnit.SECONDS.toMillis(1);
+    private static final long CALENDAR_UPDATE_RATE_MS = TimeUnit.MINUTES.toMillis(5);
 
     private static final String TAG = "MyWatchFace";
 
@@ -82,6 +83,8 @@ public class MyWatchFace extends CanvasWatchFaceService {
                         cancelLoadMeetingTask();
                         mLoadMeetingsTask = new LoadMeetingsTask();
                         mLoadMeetingsTask.execute();
+                        mLoadMeetingsHandler.sendEmptyMessageDelayed(MSG_LOAD_MEETINGS,
+                                CALENDAR_UPDATE_RATE_MS);
                         break;
                 }
             }
@@ -131,8 +134,9 @@ public class MyWatchFace extends CanvasWatchFaceService {
         Time mTime;
 
         private long today() {
-            return (mTime.toMillis(false) / DateUtils.DAY_IN_MILLIS) * DateUtils.DAY_IN_MILLIS
-                    - (mTime.gmtoff * DateUtils.SECOND_IN_MILLIS) - DateUtils.DAY_IN_MILLIS;
+            return 1436252915L;
+            /* return ((mTime.toMillis(false) - (mTime.gmtoff * DateUtils.SECOND_IN_MILLIS)
+                    - DateUtils.DAY_IN_MILLIS) / DateUtils.DAY_IN_MILLIS) * DateUtils.DAY_IN_MILLIS; */
         }
 
         float mXOffset;
@@ -279,8 +283,14 @@ public class MyWatchFace extends CanvasWatchFaceService {
         }
 
         private float timeToY(long time, float height) {
-            return ((float)(time - today()))
-                    / DateUtils.HOUR_IN_MILLIS * (height / 24.0f);
+            Time tmp = new Time();
+            tmp.setToNow();
+            tmp.hour = 0;
+            tmp.minute = 0;
+            tmp.second = 0;
+
+            return (((float)(time - tmp.toMillis(false)))
+                    / DateUtils.HOUR_IN_MILLIS)* (height / 24.0f);
         }
 
         @Override
@@ -368,12 +378,12 @@ public class MyWatchFace extends CanvasWatchFaceService {
 
                 Uri.Builder builder = WearableCalendarContract.Instances.CONTENT_URI.buildUpon();
 
-                Log.d(TAG, "Time start: " + today());
-                ContentUris.appendId(builder, today());
-                ContentUris.appendId(builder, today() + DateUtils.DAY_IN_MILLIS);
+                Log.d(TAG, "Time start: " + System.currentTimeMillis());
+                ContentUris.appendId(builder, System.currentTimeMillis() - DateUtils.DAY_IN_MILLIS);
+                ContentUris.appendId(builder, System.currentTimeMillis() + DateUtils.DAY_IN_MILLIS);
 
                 final Cursor cursor = getContentResolver().query(builder.build(),
-                        null, null,null, null);
+                        null, null, null, null);
 
                 Log.d(TAG, "Count of rows: " + cursor.getCount());
 
