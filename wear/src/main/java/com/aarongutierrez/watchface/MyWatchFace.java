@@ -327,10 +327,12 @@ public class MyWatchFace extends CanvasWatchFaceService {
             // Draw time text
             mTime.setToNow();
             String time_string = String.format("%d:%02d", mTime.hour, mTime.minute);
-            String date_string = mTime.format("%d %a");
+            String weekday_string = mTime.format("%A");
+            String date_string = mTime.format("%b %d");
 
             canvas.drawText(time_string, mXOffset, mYOffset, mTextPaint);
-            canvas.drawText(date_string, mXOffset, mYOffset + 70, mSecondaryTextPaint);
+            canvas.drawText(weekday_string, mXOffset, mYOffset + 70, mSecondaryTextPaint);
+            canvas.drawText(date_string, mXOffset, mYOffset + 110, mSecondaryTextPaint);
         }
 
         /**
