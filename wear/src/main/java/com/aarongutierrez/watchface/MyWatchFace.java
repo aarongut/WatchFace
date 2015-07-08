@@ -366,10 +366,7 @@ public class MyWatchFace extends CanvasWatchFaceService {
                         i.remove();
                     }
                     if (result.contains(e)) {
-                        Log.d(TAG, "Updating event " + e.eventId);
                         i.remove();
-                    } else {
-                        Log.d(TAG, "Event GONE!! " + e.eventId);
                     }
                 }
 
@@ -432,14 +429,11 @@ public class MyWatchFace extends CanvasWatchFaceService {
 
                 Uri.Builder builder = WearableCalendarContract.Instances.CONTENT_URI.buildUpon();
 
-                Log.d(TAG, "Time start: " + System.currentTimeMillis());
                 ContentUris.appendId(builder, System.currentTimeMillis() - DateUtils.DAY_IN_MILLIS);
                 ContentUris.appendId(builder, System.currentTimeMillis() + DateUtils.DAY_IN_MILLIS);
 
                 final Cursor cursor = getContentResolver().query(builder.build(),
                         null, null, null, null);
-
-                Log.d(TAG, "Count of rows: " + cursor.getCount());
 
                 LinkedList<CalenderEvent> events = new LinkedList<>();
 
@@ -452,8 +446,8 @@ public class MyWatchFace extends CanvasWatchFaceService {
 
                 while (cursor.moveToNext()) {
                     if (cursor.getInt(all_day_index) == 0) {
-                        Log.d(TAG, cursor.getString(title_index) + ": " + cursor.getLong(id_index));
-                        Log.d(TAG, "\t" + cursor.getLong(begin_index) + ":" + cursor.getLong(end_index));
+                        Log.v(TAG, cursor.getString(title_index) + ": " + cursor.getLong(id_index));
+                        Log.v(TAG, "\t" + cursor.getLong(begin_index) + ":" + cursor.getLong(end_index));
                         events.push(new CalenderEvent(
                                 cursor.getLong(id_index),
                                 cursor.getLong(begin_index),
