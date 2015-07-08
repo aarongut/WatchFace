@@ -64,7 +64,7 @@ public class MyWatchFace extends CanvasWatchFaceService {
      * displayed in interactive mode.
      */
     private static final long INTERACTIVE_UPDATE_RATE_MS = TimeUnit.SECONDS.toMillis(1);
-    private static final long CALENDAR_UPDATE_RATE_MS = 20000L; //TimeUnit.MINUTES.toMillis(5);
+    private static final long CALENDAR_UPDATE_RATE_MS = TimeUnit.MINUTES.toMillis(5);
 
     private static final String TAG = "MyWatchFace";
 
