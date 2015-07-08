@@ -310,11 +310,6 @@ public class MyWatchFace extends CanvasWatchFaceService {
             // Draw calendar events
             float cal_start_x = bounds.width() - mCalWidth;
             if (mEventList != null) {
-                // Draw now line
-                float now_y = timeToY(mTime.toMillis(false), bounds.height());
-                canvas.drawLine(cal_start_x-10, now_y,
-                        bounds.width(), now_y, mTextPaint);
-
                 for (CalenderEvent c : mEventList) {
                     if (!mAmbient) {
                         mCalPaint.setColor(c.event_color);
@@ -322,6 +317,11 @@ public class MyWatchFace extends CanvasWatchFaceService {
                     canvas.drawRect(cal_start_x, timeToY(c.startTime, bounds.height()),
                             bounds.width(), timeToY(c.endTime, bounds.height()), mCalPaint);
                 }
+
+                // Draw now line
+                float now_y = timeToY(mTime.toMillis(false), bounds.height());
+                canvas.drawLine(cal_start_x-10, now_y,
+                        bounds.width(), now_y, mTextPaint);
             }
 
             // Draw time text
