@@ -42,6 +42,10 @@ import android.util.Log;
 import android.view.SurfaceHolder;
 import android.view.WindowInsets;
 
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Date;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.TimeZone;
@@ -60,7 +64,7 @@ public class MyWatchFace extends CanvasWatchFaceService {
      * displayed in interactive mode.
      */
     private static final long INTERACTIVE_UPDATE_RATE_MS = TimeUnit.SECONDS.toMillis(1);
-    private static final long CALENDAR_UPDATE_RATE_MS = TimeUnit.MINUTES.toMillis(5);
+    private static final long CALENDAR_UPDATE_RATE_MS = 20000L; //TimeUnit.MINUTES.toMillis(5);
 
     private static final String TAG = "MyWatchFace";
 
@@ -156,7 +160,6 @@ public class MyWatchFace extends CanvasWatchFaceService {
         @Override
         public void onCreate(SurfaceHolder holder) {
             super.onCreate(holder);
-            Log.d(TAG, "Loading...");
 
             setWatchFaceStyle(new WatchFaceStyle.Builder(MyWatchFace.this)
                     .setCardPeekMode(WatchFaceStyle.PEEK_MODE_SHORT)
@@ -350,8 +353,31 @@ public class MyWatchFace extends CanvasWatchFaceService {
         }
 
         private void onMeetingsLoaded(List<CalenderEvent> result) {
-            if (result != null) {
+            if (mEventList == null) {
                 mEventList = result;
+                return;
+            }
+            if (result != null) {
+                // filter out old events
+                Iterator<CalenderEvent> i = mEventList.iterator();
+                while (i.hasNext()) {
+                    CalenderEvent e = i.next();
+                    if (e.endTime < mTime.toMillis(false) - DateUtils.DAY_IN_MILLIS) {
+                        i.remove();
+                    }
+                    if (result.contains(e)) {
+                        Log.d(TAG, "Updating event " + e.eventId);
+                        i.remove();
+                    } else {
+                        Log.d(TAG, "Event GONE!! " + e.eventId);
+                    }
+                }
+
+                // add in new or updated events
+                mEventList.addAll(result);
+
+                Collections.sort(mEventList);
+
                 invalidate();
             }
         }
@@ -362,12 +388,32 @@ public class MyWatchFace extends CanvasWatchFaceService {
             }
         }
 
-        private class CalenderEvent {
+        private class CalenderEvent implements Comparable<CalenderEvent> {
             long startTime;
             long endTime;
             int event_color;
+            long eventId;
 
-            public CalenderEvent(long startTime, long endTime, String color) {
+            @Override
+            public boolean equals(Object other) {
+                if (!(other instanceof CalenderEvent)) return false;
+
+                return this.eventId == ((CalenderEvent) other).eventId;
+            }
+
+            /**
+             * if one event occurs within the timespan of another, it will be lesser, otherwise
+             * starTime determines order
+             */
+            public int compareTo(CalenderEvent other) {
+                if (this.startTime < other.startTime && this.endTime > other.endTime) return -1;
+                if (this.startTime > other.startTime && this.endTime < other.endTime) return 1;
+
+                return Long.compare(this.startTime, other.startTime);
+            }
+
+            public CalenderEvent(long eventId, long startTime, long endTime, String color) {
+                this.eventId = eventId;
                 this.startTime = startTime;
                 this.endTime = endTime;
                 event_color = Integer.parseInt(color);
@@ -401,15 +447,20 @@ public class MyWatchFace extends CanvasWatchFaceService {
                 int end_index = cursor.getColumnIndex("end");
                 int title_index = cursor.getColumnIndex("title");
                 int display_color_index = cursor.getColumnIndex("displayColor");
+                int id_index = cursor.getColumnIndex("event_id");
+                int all_day_index = cursor.getColumnIndex("allDay");
 
                 while (cursor.moveToNext()) {
-                    Log.d(TAG, cursor.getString(title_index));
-
-                    events.push(new CalenderEvent(
-                            cursor.getLong(begin_index),
-                            cursor.getLong(end_index),
-                            cursor.getString(display_color_index)
-                    ));
+                    if (cursor.getInt(all_day_index) == 0) {
+                        Log.d(TAG, cursor.getString(title_index) + ": " + cursor.getLong(id_index));
+                        Log.d(TAG, "\t" + cursor.getLong(begin_index) + ":" + cursor.getLong(end_index));
+                        events.push(new CalenderEvent(
+                                cursor.getLong(id_index),
+                                cursor.getLong(begin_index),
+                                cursor.getLong(end_index),
+                                cursor.getString(display_color_index)
+                        ));
+                    }
                 }
 
                 cursor.close();
