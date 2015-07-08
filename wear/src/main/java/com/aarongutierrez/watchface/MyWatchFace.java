@@ -332,7 +332,7 @@ public class MyWatchFace extends CanvasWatchFaceService {
 
             canvas.drawText(time_string, mXOffset, mYOffset, mTextPaint);
             canvas.drawText(weekday_string, mXOffset, mYOffset + 70, mSecondaryTextPaint);
-            canvas.drawText(date_string, mXOffset, mYOffset + 110, mSecondaryTextPaint);
+            canvas.drawText(date_string, mXOffset, mYOffset + 120, mSecondaryTextPaint);
         }
 
         /**
