@@ -304,6 +304,18 @@ public class MyWatchFace extends CanvasWatchFaceService {
 
         @Override
         public void onDraw(Canvas canvas, Rect bounds) {
+            boolean event_now = false;
+            Resources resources = MyWatchFace.this.getResources();
+
+            if (!mAmbient && mEventList != null) {
+                mBackgroundPaint.setColor(resources.getColor(R.color.digital_background));
+                for (CalenderEvent c : mEventList) {
+                    if (c.startTime < mTime.toMillis(false) && c.endTime > mTime.toMillis(false)) {
+                        mBackgroundPaint.setColor(c.event_color);
+                    }
+                }
+            }
+
             // Draw the background.
             canvas.drawRect(0, 0, bounds.width(), bounds.height(), mBackgroundPaint);
 
@@ -314,13 +326,25 @@ public class MyWatchFace extends CanvasWatchFaceService {
                     if (!mAmbient) {
                         mCalPaint.setColor(c.event_color);
                     }
-                    canvas.drawRect(cal_start_x, timeToY(c.startTime, bounds.height()),
-                            bounds.width(), timeToY(c.endTime, bounds.height()), mCalPaint);
+
+                    if (!mAmbient && c.startTime < mTime.toMillis(false)
+                            && c.endTime > mTime.toMillis(false)) {
+                        mCalPaint.setColor(resources.getColor(R.color.digital_text));
+                        canvas.drawRect(cal_start_x, timeToY(c.startTime, bounds.height()),
+                                bounds.width(), timeToY(c.endTime, bounds.height()), mCalPaint);
+                        mCalPaint.setColor(c.event_color);
+                        canvas.drawRect(cal_start_x + 2, timeToY(c.startTime, bounds.height()) + 2,
+                                bounds.width() - 2, timeToY(c.endTime, bounds.height()) - 2,
+                                mCalPaint);
+                    } else {
+                        canvas.drawRect(cal_start_x, timeToY(c.startTime, bounds.height()),
+                                bounds.width(), timeToY(c.endTime, bounds.height()), mCalPaint);
+                    }
                 }
 
                 // Draw now line
                 float now_y = timeToY(mTime.toMillis(false), bounds.height());
-                canvas.drawLine(cal_start_x-10, now_y,
+                canvas.drawLine(cal_start_x - 10, now_y,
                         bounds.width(), now_y, mTextPaint);
             }
 
