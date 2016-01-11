@@ -169,8 +169,6 @@ public class MyWatchFace extends CanvasWatchFaceService {
             Resources resources = MyWatchFace.this.getResources();
             mYOffset = resources.getDimension(R.dimen.digital_y_offset);
 
-            mCalWidth = resources.getDimension(R.dimen.cal_width);
-
             mBackgroundPaint = new Paint();
             mBackgroundPaint.setColor(resources.getColor(R.color.digital_background));
 
@@ -250,6 +248,8 @@ public class MyWatchFace extends CanvasWatchFaceService {
             boolean isRound = insets.isRound();
             mXOffset = resources.getDimension(isRound
                     ? R.dimen.digital_x_offset_round : R.dimen.digital_x_offset);
+            mCalWidth = resources.getDimension(isRound
+                    ? R.dimen.cal_width_round : R.dimen.cal_width);
         }
 
         @Override
