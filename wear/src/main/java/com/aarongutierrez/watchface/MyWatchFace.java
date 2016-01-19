@@ -24,6 +24,7 @@ import android.content.IntentFilter;
 import android.content.res.Resources;
 import android.database.Cursor;
 import android.graphics.Canvas;
+import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Rect;
 import android.graphics.Typeface;
@@ -307,15 +308,6 @@ public class MyWatchFace extends CanvasWatchFaceService {
             boolean event_now = false;
             Resources resources = MyWatchFace.this.getResources();
 
-            if (!mAmbient && mEventList != null) {
-                mBackgroundPaint.setColor(resources.getColor(R.color.digital_background));
-                for (CalenderEvent c : mEventList) {
-                    if (c.startTime < mTime.toMillis(false) && c.endTime > mTime.toMillis(false)) {
-                        mBackgroundPaint.setColor(c.event_color);
-                    }
-                }
-            }
-
             // Draw the background.
             canvas.drawRect(0, 0, bounds.width(), bounds.height(), mBackgroundPaint);
 
@@ -346,6 +338,7 @@ public class MyWatchFace extends CanvasWatchFaceService {
                 float now_y = timeToY(mTime.toMillis(false), bounds.height());
                 canvas.drawLine(cal_start_x - 10, now_y,
                         bounds.width(), now_y, mTextPaint);
+                canvas.drawCircle(cal_start_x - 10, now_y, 2, mTextPaint);
             }
 
             // Draw time text
